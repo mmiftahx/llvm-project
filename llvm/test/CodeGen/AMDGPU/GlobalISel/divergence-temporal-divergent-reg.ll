@@ -72,3 +72,142 @@ exit:
   store i32 %counter, ptr %addr2
   ret void
 }
+
+; The pointer is uniform inside the loop, but each lane leaves the loop in its
+; own iteration and must use the pointer it had then.
+define i32 @temporal_divergent_ptr_load(ptr addrspace(1) inreg %base, ptr addrspace(1) %end) {
+; GFX10-LABEL: temporal_divergent_ptr_load:
+; GFX10:       ; %bb.0: ; %entry
+; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
+; GFX10-NEXT:    s_mov_b32 s6, 0
+; GFX10-NEXT:  .LBB2_1: ; %loop
+; GFX10-NEXT:    ; =>This Inner Loop Header: Depth=1
+; GFX10-NEXT:    s_mov_b64 s[4:5], s[16:17]
+; GFX10-NEXT:    s_add_u32 s16, s4, 4
+; GFX10-NEXT:    s_addc_u32 s17, s5, 0
+; GFX10-NEXT:    v_cmp_ge_u64_e32 vcc_lo, s[16:17], v[0:1]
+; GFX10-NEXT:    s_or_b32 s6, vcc_lo, s6
+; GFX10-NEXT:    s_andn2_b32 exec_lo, exec_lo, s6
+; GFX10-NEXT:    s_cbranch_execnz .LBB2_1
+; GFX10-NEXT:  ; %bb.2: ; %exit
+; GFX10-NEXT:    s_or_b32 exec_lo, exec_lo, s6
+; GFX10-NEXT:    v_mov_b32_e32 v0, 0
+; GFX10-NEXT:    global_load_dword v0, v0, s[4:5] offset:4
+; GFX10-NEXT:    s_waitcnt vmcnt(0)
+; GFX10-NEXT:    s_setpc_b64 s[30:31]
+entry:
+  br label %loop
+
+loop:
+  %p = phi ptr addrspace(1) [ %base, %entry ], [ %p.next, %loop ]
+  %p.next = getelementptr i32, ptr addrspace(1) %p, i32 1
+  %done = icmp uge ptr addrspace(1) %p.next, %end
+  br i1 %done, label %exit, label %loop
+
+exit:
+  %val = load i32, ptr addrspace(1) %p.next
+  ret i32 %val
+}
+
+define i32 @temporal_divergent_ptr_lds_load(ptr addrspace(3) inreg %base, ptr addrspace(3) %end) {
+; GFX10-LABEL: temporal_divergent_ptr_lds_load:
+; GFX10:       ; %bb.0: ; %entry
+; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
+; GFX10-NEXT:    s_mov_b32 s4, 0
+; GFX10-NEXT:  .LBB3_1: ; %loop
+; GFX10-NEXT:    ; =>This Inner Loop Header: Depth=1
+; GFX10-NEXT:    s_mov_b32 s5, s16
+; GFX10-NEXT:    s_add_u32 s16, s16, 4
+; GFX10-NEXT:    v_cmp_ge_u32_e32 vcc_lo, s16, v0
+; GFX10-NEXT:    s_or_b32 s4, vcc_lo, s4
+; GFX10-NEXT:    s_andn2_b32 exec_lo, exec_lo, s4
+; GFX10-NEXT:    s_cbranch_execnz .LBB3_1
+; GFX10-NEXT:  ; %bb.2: ; %exit
+; GFX10-NEXT:    s_or_b32 exec_lo, exec_lo, s4
+; GFX10-NEXT:    v_mov_b32_e32 v0, s5
+; GFX10-NEXT:    ds_read_b32 v0, v0 offset:4
+; GFX10-NEXT:    s_waitcnt lgkmcnt(0)
+; GFX10-NEXT:    s_setpc_b64 s[30:31]
+entry:
+  br label %loop
+
+loop:
+  %p = phi ptr addrspace(3) [ %base, %entry ], [ %p.next, %loop ]
+  %p.next = getelementptr i32, ptr addrspace(3) %p, i32 1
+  %done = icmp uge ptr addrspace(3) %p.next, %end
+  br i1 %done, label %exit, label %loop
+
+exit:
+  %val = load i32, ptr addrspace(3) %p.next
+  ret i32 %val
+}
+
+define i32 @temporal_divergent_ptr_private_load(ptr addrspace(5) inreg %base, ptr addrspace(5) %end) {
+; GFX10-LABEL: temporal_divergent_ptr_private_load:
+; GFX10:       ; %bb.0: ; %entry
+; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
+; GFX10-NEXT:    s_mov_b32 s4, 0
+; GFX10-NEXT:  .LBB4_1: ; %loop
+; GFX10-NEXT:    ; =>This Inner Loop Header: Depth=1
+; GFX10-NEXT:    s_mov_b32 s5, s16
+; GFX10-NEXT:    s_add_u32 s16, s16, 4
+; GFX10-NEXT:    v_cmp_ge_u32_e32 vcc_lo, s16, v0
+; GFX10-NEXT:    s_or_b32 s4, vcc_lo, s4
+; GFX10-NEXT:    s_andn2_b32 exec_lo, exec_lo, s4
+; GFX10-NEXT:    s_cbranch_execnz .LBB4_1
+; GFX10-NEXT:  ; %bb.2: ; %exit
+; GFX10-NEXT:    s_or_b32 exec_lo, exec_lo, s4
+; GFX10-NEXT:    v_mov_b32_e32 v0, s5
+; GFX10-NEXT:    buffer_load_dword v0, v0, s[0:3], 0 offen offset:4
+; GFX10-NEXT:    s_waitcnt vmcnt(0)
+; GFX10-NEXT:    s_setpc_b64 s[30:31]
+entry:
+  br label %loop
+
+loop:
+  %p = phi ptr addrspace(5) [ %base, %entry ], [ %p.next, %loop ]
+  %p.next = getelementptr i32, ptr addrspace(5) %p, i32 1
+  %done = icmp uge ptr addrspace(5) %p.next, %end
+  br i1 %done, label %exit, label %loop
+
+exit:
+  %val = load i32, ptr addrspace(5) %p.next
+  ret i32 %val
+}
+
+; The same with a shift amount after the loop.
+define void @temporal_divergent_shift_amount(i32 inreg %start, i32 %x, i32 %end, ptr addrspace(1) %out) {
+; GFX10-LABEL: temporal_divergent_shift_amount:
+; GFX10:       ; %bb.0: ; %entry
+; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
+; GFX10-NEXT:    s_add_i32 s6, s16, 1
+; GFX10-NEXT:    s_mov_b32 s4, 0
+; GFX10-NEXT:  .LBB5_1: ; %loop
+; GFX10-NEXT:    ; =>This Inner Loop Header: Depth=1
+; GFX10-NEXT:    s_mov_b32 s5, s6
+; GFX10-NEXT:    s_and_b32 s6, s6, 31
+; GFX10-NEXT:    v_cmp_ge_u32_e32 vcc_lo, s6, v1
+; GFX10-NEXT:    s_add_i32 s6, s5, 1
+; GFX10-NEXT:    s_or_b32 s4, vcc_lo, s4
+; GFX10-NEXT:    s_andn2_b32 exec_lo, exec_lo, s4
+; GFX10-NEXT:    s_cbranch_execnz .LBB5_1
+; GFX10-NEXT:  ; %bb.2: ; %exit
+; GFX10-NEXT:    s_or_b32 exec_lo, exec_lo, s4
+; GFX10-NEXT:    v_lshlrev_b32_e32 v0, s5, v0
+; GFX10-NEXT:    global_store_dword v[2:3], v0, off
+; GFX10-NEXT:    s_setpc_b64 s[30:31]
+entry:
+  br label %loop
+
+loop:
+  %i = phi i32 [ %start, %entry ], [ %i.next, %loop ]
+  %i.next = add i32 %i, 1
+  %amt = and i32 %i.next, 31
+  %done = icmp uge i32 %amt, %end
+  br i1 %done, label %exit, label %loop
+
+exit:
+  %shl = shl i32 %x, %amt
+  store i32 %shl, ptr addrspace(1) %out
+  ret void
+}
