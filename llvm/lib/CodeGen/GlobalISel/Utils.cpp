@@ -483,6 +483,10 @@ llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI) {
     return std::nullopt;
   unsigned Opc = DefMI->getOpcode();
   while (Opc == TargetOpcode::COPY || isPreISelGenericOptimizationHint(Opc)) {
+    // A copy with implicit operands, such as one that reads exec, is more
+    // than a copy of its source.
+    if (!DefMI->implicit_operands().empty())
+      break;
     Register SrcReg = DefMI->getOperand(1).getReg();
     auto SrcTy = MRI.getType(SrcReg);
     if (!SrcTy.isValid())

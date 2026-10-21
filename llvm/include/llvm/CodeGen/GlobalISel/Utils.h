@@ -250,7 +250,7 @@ struct DefinitionAndSourceRegister {
 };
 
 /// Find the def instruction for \p Reg, and underlying value Register folding
-/// away any copies.
+/// away any trivial copies. A copy with implicit operands is not trivial.
 ///
 /// Also walks through hints such as G_ASSERT_ZEXT.
 LLVM_ABI std::optional<DefinitionAndSourceRegister>

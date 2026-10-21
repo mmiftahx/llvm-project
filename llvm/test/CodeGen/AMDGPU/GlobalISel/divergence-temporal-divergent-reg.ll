@@ -79,20 +79,20 @@ define i32 @temporal_divergent_ptr_load(ptr addrspace(1) inreg %base, ptr addrsp
 ; GFX10-LABEL: temporal_divergent_ptr_load:
 ; GFX10:       ; %bb.0: ; %entry
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
-; GFX10-NEXT:    s_mov_b32 s6, 0
+; GFX10-NEXT:    s_mov_b32 s4, 0
 ; GFX10-NEXT:  .LBB2_1: ; %loop
 ; GFX10-NEXT:    ; =>This Inner Loop Header: Depth=1
-; GFX10-NEXT:    s_mov_b64 s[4:5], s[16:17]
-; GFX10-NEXT:    s_add_u32 s16, s4, 4
-; GFX10-NEXT:    s_addc_u32 s17, s5, 0
+; GFX10-NEXT:    s_add_u32 s16, s16, 4
+; GFX10-NEXT:    s_addc_u32 s17, s17, 0
+; GFX10-NEXT:    v_mov_b32_e32 v2, s16
 ; GFX10-NEXT:    v_cmp_ge_u64_e32 vcc_lo, s[16:17], v[0:1]
-; GFX10-NEXT:    s_or_b32 s6, vcc_lo, s6
-; GFX10-NEXT:    s_andn2_b32 exec_lo, exec_lo, s6
+; GFX10-NEXT:    v_mov_b32_e32 v3, s17
+; GFX10-NEXT:    s_or_b32 s4, vcc_lo, s4
+; GFX10-NEXT:    s_andn2_b32 exec_lo, exec_lo, s4
 ; GFX10-NEXT:    s_cbranch_execnz .LBB2_1
 ; GFX10-NEXT:  ; %bb.2: ; %exit
-; GFX10-NEXT:    s_or_b32 exec_lo, exec_lo, s6
-; GFX10-NEXT:    v_mov_b32_e32 v0, 0
-; GFX10-NEXT:    global_load_dword v0, v0, s[4:5] offset:4
+; GFX10-NEXT:    s_or_b32 exec_lo, exec_lo, s4
+; GFX10-NEXT:    global_load_dword v0, v[2:3], off
 ; GFX10-NEXT:    s_waitcnt vmcnt(0)
 ; GFX10-NEXT:    s_setpc_b64 s[30:31]
 entry:
@@ -116,16 +116,15 @@ define i32 @temporal_divergent_ptr_lds_load(ptr addrspace(3) inreg %base, ptr ad
 ; GFX10-NEXT:    s_mov_b32 s4, 0
 ; GFX10-NEXT:  .LBB3_1: ; %loop
 ; GFX10-NEXT:    ; =>This Inner Loop Header: Depth=1
-; GFX10-NEXT:    s_mov_b32 s5, s16
 ; GFX10-NEXT:    s_add_u32 s16, s16, 4
 ; GFX10-NEXT:    v_cmp_ge_u32_e32 vcc_lo, s16, v0
+; GFX10-NEXT:    v_mov_b32_e32 v1, s16
 ; GFX10-NEXT:    s_or_b32 s4, vcc_lo, s4
 ; GFX10-NEXT:    s_andn2_b32 exec_lo, exec_lo, s4
 ; GFX10-NEXT:    s_cbranch_execnz .LBB3_1
 ; GFX10-NEXT:  ; %bb.2: ; %exit
 ; GFX10-NEXT:    s_or_b32 exec_lo, exec_lo, s4
-; GFX10-NEXT:    v_mov_b32_e32 v0, s5
-; GFX10-NEXT:    ds_read_b32 v0, v0 offset:4
+; GFX10-NEXT:    ds_read_b32 v0, v1
 ; GFX10-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX10-NEXT:    s_setpc_b64 s[30:31]
 entry:
@@ -149,16 +148,15 @@ define i32 @temporal_divergent_ptr_private_load(ptr addrspace(5) inreg %base, pt
 ; GFX10-NEXT:    s_mov_b32 s4, 0
 ; GFX10-NEXT:  .LBB4_1: ; %loop
 ; GFX10-NEXT:    ; =>This Inner Loop Header: Depth=1
-; GFX10-NEXT:    s_mov_b32 s5, s16
 ; GFX10-NEXT:    s_add_u32 s16, s16, 4
 ; GFX10-NEXT:    v_cmp_ge_u32_e32 vcc_lo, s16, v0
+; GFX10-NEXT:    v_mov_b32_e32 v1, s16
 ; GFX10-NEXT:    s_or_b32 s4, vcc_lo, s4
 ; GFX10-NEXT:    s_andn2_b32 exec_lo, exec_lo, s4
 ; GFX10-NEXT:    s_cbranch_execnz .LBB4_1
 ; GFX10-NEXT:  ; %bb.2: ; %exit
 ; GFX10-NEXT:    s_or_b32 exec_lo, exec_lo, s4
-; GFX10-NEXT:    v_mov_b32_e32 v0, s5
-; GFX10-NEXT:    buffer_load_dword v0, v0, s[0:3], 0 offen offset:4
+; GFX10-NEXT:    buffer_load_dword v0, v1, s[0:3], 0 offen
 ; GFX10-NEXT:    s_waitcnt vmcnt(0)
 ; GFX10-NEXT:    s_setpc_b64 s[30:31]
 entry:
@@ -180,20 +178,20 @@ define void @temporal_divergent_shift_amount(i32 inreg %start, i32 %x, i32 %end,
 ; GFX10-LABEL: temporal_divergent_shift_amount:
 ; GFX10:       ; %bb.0: ; %entry
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
-; GFX10-NEXT:    s_add_i32 s6, s16, 1
+; GFX10-NEXT:    s_add_i32 s5, s16, 1
 ; GFX10-NEXT:    s_mov_b32 s4, 0
 ; GFX10-NEXT:  .LBB5_1: ; %loop
 ; GFX10-NEXT:    ; =>This Inner Loop Header: Depth=1
-; GFX10-NEXT:    s_mov_b32 s5, s6
-; GFX10-NEXT:    s_and_b32 s6, s6, 31
+; GFX10-NEXT:    s_and_b32 s6, s5, 31
+; GFX10-NEXT:    s_add_i32 s5, s5, 1
 ; GFX10-NEXT:    v_cmp_ge_u32_e32 vcc_lo, s6, v1
-; GFX10-NEXT:    s_add_i32 s6, s5, 1
+; GFX10-NEXT:    v_mov_b32_e32 v4, s6
 ; GFX10-NEXT:    s_or_b32 s4, vcc_lo, s4
 ; GFX10-NEXT:    s_andn2_b32 exec_lo, exec_lo, s4
 ; GFX10-NEXT:    s_cbranch_execnz .LBB5_1
 ; GFX10-NEXT:  ; %bb.2: ; %exit
 ; GFX10-NEXT:    s_or_b32 exec_lo, exec_lo, s4
-; GFX10-NEXT:    v_lshlrev_b32_e32 v0, s5, v0
+; GFX10-NEXT:    v_lshlrev_b32_e32 v0, v4, v0
 ; GFX10-NEXT:    global_store_dword v[2:3], v0, off
 ; GFX10-NEXT:    s_setpc_b64 s[30:31]
 entry:
